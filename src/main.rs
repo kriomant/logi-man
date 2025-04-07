@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use eyre::{ensure, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -9,6 +9,14 @@ use serde_json::{Map, Value};
 struct Options {
     /// Path to LogiOptions settings database
     db: std::path::PathBuf,
+
+    #[command(subcommand)]
+    command: Command,
+}
+
+#[derive(Subcommand)]
+enum Command {
+    ShowSettings,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -42,7 +50,9 @@ fn main() -> Result<()> {
     let settings = load_settings(&options.db)?;
     let settings: Settings = serde_json::from_slice(&settings)?;
 
-    serde_json::to_writer_pretty(std::io::stdout(), &settings)?;
+    match options.command {
+        Command::ShowSettings => serde_json::to_writer_pretty(std::io::stdout(), &settings)?,
+    }
 
     Ok(())
 }
