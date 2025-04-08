@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, io::Write, path::Path};
+use std::{collections::BTreeMap, io::Write, os::unix::ffi::OsStrExt};
 
 use clap::{Parser, Subcommand};
 use eyre::{ensure, Result};
@@ -18,6 +18,7 @@ struct Options {
 enum Command {
     ShowSettings,
     ListDevices,
+    EditSettings,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -92,7 +93,8 @@ struct Assignment {
 fn main() -> Result<()> {
     let options = Options::parse();
 
-    let settings = load_settings(&options.db)?;
+    let db = rusqlite::Connection::open(&options.db)?;
+    let settings = load_settings(&db)?;
 
     match options.command {
         Command::ShowSettings => {
@@ -129,13 +131,26 @@ fn main() -> Result<()> {
                 println!("{}: {}", device.slot_prefix, model_name);
             }
         }
+        Command::EditSettings => {
+            // Backup current settings
+            db.execute(
+                "VACUUM INTO concat(?1, '.', strftime('%Y-%m-%d_%H-%M-%S', 'now', 'localtime'))",
+                [options.db.as_os_str().as_bytes()]
+            )?;
+
+            let new_settings = edit::edit(&settings)?;
+            if new_settings.as_bytes() == settings {
+                return Ok(());
+            }
+
+            save_settings(&db, &new_settings)?;
+        }
     }
 
     Ok(())
 }
 
-fn load_settings(db: &Path) -> Result<Vec<u8>, eyre::Error> {
-    let db = rusqlite::Connection::open(db)?;
+fn load_settings(db: &rusqlite::Connection) -> Result<Vec<u8>> {
     let number_of_rows: u32 = db.query_row("SELECT COUNT(*) FROM data", [], |row| row.get(0))?;
     ensure!(number_of_rows == 1, "database is expected to contain single row only, but it contains {} row(s)", number_of_rows);
     let (id, settings): (u32, Vec<u8>) = db.query_row("SELECT _id, file FROM data", [], |row| {
@@ -143,4 +158,9 @@ fn load_settings(db: &Path) -> Result<Vec<u8>, eyre::Error> {
     })?;
     ensure!(id == 1, "settings are expected to have id==1, got {}", id);
     Ok(settings)
+}
+
+fn save_settings(db: &rusqlite::Connection, settings: &str) -> Result<()> {
+    db.execute("UPDATE data SET file=?1 WHERE _id=1", [settings])?;
+    Ok(())
 }
