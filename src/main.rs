@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, path::Path};
+use std::{collections::BTreeMap, io::Write, path::Path};
 
 use clap::{Parser, Subcommand};
 use eyre::{ensure, Result};
@@ -93,11 +93,14 @@ fn main() -> Result<()> {
     let options = Options::parse();
 
     let settings = load_settings(&options.db)?;
-    let settings: Settings = serde_json::from_slice(&settings)?;
 
     match options.command {
-        Command::ShowSettings => serde_json::to_writer_pretty(std::io::stdout(), &settings)?,
+        Command::ShowSettings => {
+            std::io::stdout().write_all(&settings)?
+        }
         Command::ListDevices => {
+            let settings: Settings = serde_json::from_slice(&settings)?;
+
             // Get human-readable model names. I have no idea where LogiOptions application
             // gets them, I suppose they are hardcoded into binary. But some model names
             // are in migration settings. Load them and use.
