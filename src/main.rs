@@ -1,3 +1,5 @@
+#![feature(exit_status_error)]
+
 use std::{collections::BTreeMap, io::Write, os::unix::ffi::OsStrExt, path::Path};
 
 use clap::{Parser, Subcommand};
@@ -221,6 +223,13 @@ fn main() -> Result<()> {
                 println!("{}", settings);
             } else {
                 save_settings(&db, &settings)?;
+
+                let uid = unsafe { libc::getuid() };
+                std::process::Command::new("/bin/launchctl")
+                    .args(["kill", "SIGKILL"])
+                    .arg(format!("gui/{uid}/com.logi.cp-dev-mgr"))
+                    .status()?
+                    .exit_ok()?;
             }
         }
     }
