@@ -1,4 +1,4 @@
-#![feature(exit_status_error)]
+#![feature(exit_status_error, cfg_match)]
 
 use std::{collections::BTreeMap, io::Write, os::unix::ffi::OsStrExt, path::Path};
 
@@ -224,16 +224,27 @@ fn main() -> Result<()> {
             } else {
                 save_settings(&db, &settings)?;
 
-                let uid = unsafe { libc::getuid() };
-                std::process::Command::new("/bin/launchctl")
-                    .args(["kill", "SIGKILL"])
-                    .arg(format!("gui/{uid}/com.logi.cp-dev-mgr"))
-                    .status()?
-                    .exit_ok()?;
+                restart_logi_agent()?;
             }
         }
     }
 
+    Ok(())
+}
+
+fn restart_logi_agent() -> Result<(), eyre::Error> {
+    cfg_match! {
+        target_os="macos" => {
+            let uid = unsafe { libc::getuid() };
+            std::process::Command::new("/bin/launchctl")
+                .args(["kill", "SIGKILL"])
+                .arg(format!("gui/{uid}/com.logi.cp-dev-mgr"))
+                .status()?
+                .exit_ok()?;
+        }
+        _ => {
+        }
+    }
     Ok(())
 }
 
