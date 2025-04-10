@@ -129,6 +129,7 @@ fn restart_logi_agent() -> Result<(), eyre::Error> {
                 .exit_ok()?;
         }
         _ => {
+            println!("Now you should kill Logi agent");
         }
     }
     Ok(())
