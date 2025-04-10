@@ -74,7 +74,7 @@ fn list_devices(settings: Vec<u8>) -> Result<()> {
 }
 
 fn edit_settings(db_path: &Path, db: rusqlite::Connection, settings: Vec<u8>) -> Result<()> {
-    backup_database(&db_path, &db)?;
+    backup_database(db_path, &db)?;
 
     let new_settings = edit::edit(&settings)?;
     if new_settings.as_bytes() == settings {

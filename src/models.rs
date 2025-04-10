@@ -37,16 +37,16 @@ impl TryFrom<RawSettings> for Settings {
     }
 }
 
-impl Into<RawSettings> for Settings {
-    fn into(mut self) -> RawSettings {
-        for (profile_name, profile) in self.profiles {
-            self.rest.insert(profile_name, serde_json::to_value(profile).unwrap());
+impl From<Settings> for RawSettings {
+    fn from(mut settings: Settings) -> Self {
+        for (profile_name, profile) in settings.profiles {
+            settings.rest.insert(profile_name, serde_json::to_value(profile).unwrap());
         }
         RawSettings {
-            profile_keys: self.profile_keys,
-            ever_connected_devices: self.ever_connected_devices,
-            migration_report: self.migration_report,
-            rest: self.rest,
+            profile_keys: settings.profile_keys,
+            ever_connected_devices: settings.ever_connected_devices,
+            migration_report: settings.migration_report,
+            rest: settings.rest,
         }
     }
 }
