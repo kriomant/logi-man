@@ -7,21 +7,20 @@ use eyre::{ensure, Result};
 mod options;
 mod models;
 
-use options::{Options, Command};
+use options::{Command, CommonOptions, Options, TransferAssignments};
 use models::{Assignment, ConnectedDevice, Settings};
 
 fn main() -> Result<()> {
     let options = Options::parse();
 
-    let db = rusqlite::Connection::open(&options.db)?;
+    let db = rusqlite::Connection::open(&options.common.db)?;
     let settings = load_settings(&db)?;
 
     match options.command.clone() {
         Command::ShowSettings => show_settings(settings),
         Command::ListDevices => list_devices(settings),
-        Command::EditSettings => edit_settings(options, db, settings),
-        Command::TransferAssignments { from, to, dry_run } =>
-            transfer_assignments(options, db, settings, from, to, dry_run)
+        Command::EditSettings => edit_settings(options.common, db, settings),
+        Command::TransferAssignments(opts) => transfer_assignments(options.common, opts, db, settings)
     }
 }
 
@@ -64,7 +63,7 @@ fn list_devices(settings: Vec<u8>) -> Result<()> {
     Ok(())
 }
 
-fn edit_settings(options: Options, db: rusqlite::Connection, settings: Vec<u8>) -> Result<()> {
+fn edit_settings(options: CommonOptions, db: rusqlite::Connection, settings: Vec<u8>) -> Result<()> {
     backup_database(&options.db, &db)?;
 
     let new_settings = edit::edit(&settings)?;
@@ -76,10 +75,10 @@ fn edit_settings(options: Options, db: rusqlite::Connection, settings: Vec<u8>) 
     Ok(())
 }
 
-fn transfer_assignments(options: Options, db: rusqlite::Connection, settings: Vec<u8>, from: String, to: String, dry_run: bool) -> Result<()> {
+fn transfer_assignments(common_options: CommonOptions, opts: TransferAssignments, db: rusqlite::Connection, settings: Vec<u8>) -> Result<()> {
     let mut settings: Settings = serde_json::from_slice(&settings)?;
-    if !dry_run {
-        backup_database(&options.db, &db)?;
+    if !opts.dry_run {
+        backup_database(&common_options.db, &db)?;
     }
 
     for profile in settings.profiles.values_mut() {
@@ -88,17 +87,17 @@ fn transfer_assignments(options: Options, db: rusqlite::Connection, settings: Ve
             // Get only assignments for source device, leave slot suffix only
             .filter_map(|a| {
                 let (device, button) = a.slot_id.split_once('_')?;
-                (device == from).then(|| Assignment { slot_id: format!("{}_{}", to, button), ..a.clone()})
+                (device == opts.from).then(|| Assignment { slot_id: format!("{}_{}", opts.to, button), ..a.clone()})
             })
             .collect();
         // Remove all existing assignments for target device.
-        profile.assignments.retain(|a| a.slot_id.split_once('_').is_some_and(|(device, _)| device != to));
+        profile.assignments.retain(|a| a.slot_id.split_once('_').is_some_and(|(device, _)| device != opts.to));
         // Append new assignemnts.
         profile.assignments.append(&mut new_assignments);
     }
 
     let settings = serde_json::to_string_pretty(&settings)?;
-    if dry_run {
+    if opts.dry_run {
         println!("{}", settings);
     } else {
         save_settings(&db, &settings)?;
