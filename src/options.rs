@@ -12,7 +12,7 @@ pub struct Options {
 #[derive(Parser)]
 pub struct CommonOptions {
     /// Path to LogiOptions settings database
-    pub db: std::path::PathBuf,
+    pub db: Option<std::path::PathBuf>,
 }
 
 impl Options {

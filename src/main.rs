@@ -2,25 +2,35 @@
 
 use std::{collections::BTreeMap, io::Write, os::unix::ffi::OsStrExt, path::Path};
 
-use eyre::{ensure, Result};
+use directories_next::BaseDirs;
+use eyre::{ensure, OptionExt, Result};
 
 mod options;
 mod models;
 
-use options::{Command, CommonOptions, Options, TransferAssignments};
+use options::{Command, Options, TransferAssignments};
 use models::{Assignment, ConnectedDevice, Settings};
 
 fn main() -> Result<()> {
     let options = Options::parse();
 
-    let db = rusqlite::Connection::open(&options.common.db)?;
+    // Autodetect database path if needed.
+    let db_path = match options.common.db {
+        Some(path) => path,
+        None => {
+            let dirs = BaseDirs::new().ok_or_eyre("can't get user directory path")?;
+            dirs.data_local_dir().join("LogiOptionsPlus/settings.db")
+        }
+    };
+
+    let db = rusqlite::Connection::open(&db_path)?;
     let settings = load_settings(&db)?;
 
     match options.command.clone() {
         Command::ShowSettings => show_settings(settings),
         Command::ListDevices => list_devices(settings),
-        Command::EditSettings => edit_settings(options.common, db, settings),
-        Command::TransferAssignments(opts) => transfer_assignments(options.common, opts, db, settings)
+        Command::EditSettings => edit_settings(&db_path, db, settings),
+        Command::TransferAssignments(opts) => transfer_assignments(&db_path, opts, db, settings)
     }
 }
 
@@ -63,8 +73,8 @@ fn list_devices(settings: Vec<u8>) -> Result<()> {
     Ok(())
 }
 
-fn edit_settings(options: CommonOptions, db: rusqlite::Connection, settings: Vec<u8>) -> Result<()> {
-    backup_database(&options.db, &db)?;
+fn edit_settings(db_path: &Path, db: rusqlite::Connection, settings: Vec<u8>) -> Result<()> {
+    backup_database(&db_path, &db)?;
 
     let new_settings = edit::edit(&settings)?;
     if new_settings.as_bytes() == settings {
@@ -75,10 +85,10 @@ fn edit_settings(options: CommonOptions, db: rusqlite::Connection, settings: Vec
     Ok(())
 }
 
-fn transfer_assignments(common_options: CommonOptions, opts: TransferAssignments, db: rusqlite::Connection, settings: Vec<u8>) -> Result<()> {
+fn transfer_assignments(db_path: &Path, opts: TransferAssignments, db: rusqlite::Connection, settings: Vec<u8>) -> Result<()> {
     let mut settings: Settings = serde_json::from_slice(&settings)?;
     if !opts.dry_run {
-        backup_database(&common_options.db, &db)?;
+        backup_database(db_path, &db)?;
     }
 
     for profile in settings.profiles.values_mut() {
