@@ -30,6 +30,16 @@ It is intended to work on MacOS. It mustn't be hard to make it work on Windows, 
 to help me test it.
 It overrides settings of target device without warning!
 
+## Installation
+
+### From source
+
+Install *rustup*, checkout repository, then `cargo build`.
+
+### Releases
+
+There are automated builds, see *Releases* section on GitHub.
+
 ## Usage
 
 Currenly there are no automatic builds, so you need `cargo` tool to build.
@@ -37,7 +47,7 @@ Currenly there are no automatic builds, so you need `cargo` tool to build.
 1. List devices
 
   ```bash
-  ❯ cargo run -- ~/Library/Application\ Support/LogiOptionsPlus/settings.db list-devices
+  ❯ logi-man ~/Library/Application\ Support/LogiOptionsPlus/settings.db list-devices
   m337-1b016: M336 / M337 / M535
   mx-master-3-6b023: MX Master 3
   mx-master-3s-2b034: MX Master 3S
@@ -45,7 +55,7 @@ Currenly there are no automatic builds, so you need `cargo` tool to build.
 
 2. Transfer settings
   ```bash
-  ❯ cargo run -- ~/Library/Application\ Support/LogiOptionsPlus/settings.db transfer-assignments mx-master-3s-2b034 mx-master-3-6b023s
+  ❯ logi-man ~/Library/Application\ Support/LogiOptionsPlus/settings.db transfer-assignments mx-master-3s-2b034 mx-master-3-6b023s
   ```
 
 It you are lucky, settings are synced now.
